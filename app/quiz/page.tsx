@@ -20,6 +20,9 @@ import {
   getNextQuestion, 
   analyzeQuizResults, 
   getBadge,
+  getQuizProgress,
+  validateQuizCompletion,
+  getSafeNextQuestion,
   type QuizAnswer 
 } from "@/lib/quiz-logic"
 
@@ -96,7 +99,12 @@ export default function AdvancedQuizPage() {
     setAnswers(updatedAnswers)
 
     // Get the next question based on the current answer
-    const nextQuestionId = getNextQuestion(currentQuestionId, currentAnswer)
+    let nextQuestionId = getNextQuestion(currentQuestionId, currentAnswer)
+    
+    // If flow is broken, try to recover with a safe next question
+    if (!nextQuestionId) {
+      nextQuestionId = getSafeNextQuestion(currentQuestionId, updatedAnswers)
+    }
 
     if (nextQuestionId) {
       setCurrentQuestionId(nextQuestionId)
@@ -131,6 +139,11 @@ export default function AdvancedQuizPage() {
     setIsSubmitting(true)
 
     try {
+      // Validate quiz completion before proceeding
+      if (!validateQuizCompletion(finalAnswers)) {
+        console.warn('⚠️ Quiz validation failed, but proceeding with submission')
+      }
+
       // Analyze results using your advanced logic
       const analysis = analyzeQuizResults(finalAnswers)
       const badge = getBadge(finalAnswers)
@@ -259,9 +272,8 @@ export default function AdvancedQuizPage() {
   const currentQuestion = quizQuestions[currentQuestionId]
   const hasAnsweredCurrent = currentAnswer !== ""
   
-  // Calculate progress based on question history length
-  const totalEstimatedQuestions = 6 // Approximate based on your flow
-  const progress = Math.min((questionHistory.length / totalEstimatedQuestions) * 100, 95)
+  // Calculate progress using enhanced progress calculation
+  const progress = getQuizProgress(answers)
 
   // Get icon component for badge
   const getBadgeIcon = (iconName: string) => {

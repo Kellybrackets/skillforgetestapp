@@ -1,4 +1,4 @@
-// lib/quiz.ts - Fixed Quiz database operations
+// lib/quiz.ts - Complete integrated Quiz database operations
 
 import { createSupabaseClient } from '@/lib/supabase'
 import { QuizAnswer, analyzeQuizResults, getBadge } from './quiz-logic'
@@ -84,7 +84,7 @@ export const getUserQuizResults = async (userId: string): Promise<QuizResult | n
   }
 }
 
-// Map quiz results to learning paths from your database
+// Enhanced learning path mapping function
 const mapToLearningPaths = (answers: QuizAnswer[], skillLevels: Record<string, number>): string[] => {
   const recommendations: string[] = []
   
@@ -92,50 +92,164 @@ const mapToLearningPaths = (answers: QuizAnswer[], skillLevels: Record<string, n
   const primaryInterestAnswer = answers.find(answer => answer.questionId === 'q1')
   const primaryInterest = primaryInterestAnswer?.value
   
+  // Get additional context from other answers
+  const timeCommitment = answers.find(answer => answer.questionId === 'q4-time')?.value || 'medium'
+  const learningStyle = answers.find(answer => answer.questionId === 'q5-learning')?.value || 'interactive'
+  const goal = answers.find(answer => answer.questionId === 'q6-goals')?.value || 'personal'
+  
   // Get the highest skill level to determine experience
   const maxSkillLevel = Math.max(...Object.values(skillLevels))
   
-  // Map to your existing learning paths based on interest and skill level
+  // Get specific sub-interest
+  let subInterest = ''
+  if (primaryInterest === 'design') {
+    subInterest = answers.find(answer => answer.questionId === 'q2-design')?.value || ''
+  } else if (primaryInterest === 'ai') {
+    subInterest = answers.find(answer => answer.questionId === 'q2-ai')?.value || ''
+  } else if (primaryInterest === 'marketing') {
+    subInterest = answers.find(answer => answer.questionId === 'q2-marketing')?.value || ''
+  } else if (primaryInterest === 'webdev') {
+    subInterest = answers.find(answer => answer.questionId === 'q2-webdev')?.value || ''
+  }
+
+  // Map to learning paths based on primary interest and specifics
   switch (primaryInterest) {
     case 'design':
-      // Check for specific design area
-      const designSpecific = answers.find(answer => answer.questionId === 'q2-design')?.value
-      if (designSpecific === 'uiux') {
-        recommendations.push('Frontend Development Mastery') // Your existing path
+      if (subInterest === 'uiux') {
+        if (maxSkillLevel >= 7) {
+          recommendations.push('Advanced UI/UX Design', 'Design Systems Mastery')
+        } else {
+          recommendations.push('UI/UX Design Fundamentals', 'Frontend Development Mastery')
+        }
+      } else if (subInterest === 'graphic') {
+        recommendations.push('Graphic Design Professional', 'Digital Marketing Professional')
+      } else if (subInterest === 'animation') {
+        // Get specific animation type from q3-animation
+        const animationType = answers.find(answer => answer.questionId === 'q3-animation')?.value || ''
+        if (animationType === '3d') {
+          recommendations.push('3D Modeling & Animation', 'Game Development')
+        } else if (animationType === '2d') {
+          recommendations.push('Motion Graphics & 2D Animation', 'Digital Marketing Professional')
+        } else if (animationType === 'video') {
+          recommendations.push('Video Production & Editing', 'Content Creation Mastery')
+        } else if (animationType === 'character') {
+          recommendations.push('Character Animation', 'Game Development')
+        } else {
+          recommendations.push('Animation & Motion Graphics', 'Creative Media Production')
+        }
+      } else if (subInterest === 'photo') {
+        recommendations.push('Photography Mastery', 'Digital Marketing Professional')
       } else {
-        recommendations.push('Frontend Development Mastery') // Default for design
+        // Fallback for design
+        recommendations.push('Creative Design Fundamentals', 'Frontend Development Mastery')
       }
       break
       
     case 'ai':
-      recommendations.push('Data Science Fundamentals') // Your existing path
+      if (subInterest === 'ml-basics') {
+        if (maxSkillLevel >= 7) {
+          recommendations.push('Advanced Machine Learning', 'Data Science Professional')
+        } else {
+          recommendations.push('Data Science Fundamentals', 'Python Programming')
+        }
+      } else if (subInterest === 'nlp') {
+        recommendations.push('Natural Language Processing', 'AI Application Development')
+      } else if (subInterest === 'cv') {
+        recommendations.push('Computer Vision & Image AI', 'AI Application Development')
+      } else if (subInterest === 'data-analytics') {
+        // Get specific data analytics level from q3-data-analytics
+        const analyticsLevel = answers.find(answer => answer.questionId === 'q3-data-analytics')?.value || ''
+        if (analyticsLevel === 'advanced') {
+          recommendations.push('Advanced Business Intelligence', 'Data Strategy & Leadership')
+        } else if (analyticsLevel === 'intermediate') {
+          recommendations.push('SQL & Database Analytics', 'Business Intelligence Professional')
+        } else {
+          recommendations.push('Data Analytics Fundamentals', 'Excel to Python Transition')
+        }
+      } else {
+        // Fallback for AI
+        recommendations.push('Data Science Fundamentals', 'AI Application Development')
+      }
       break
       
     case 'marketing':
-      recommendations.push('Digital Marketing Professional') // Your existing path
+      if (subInterest === 'social') {
+        recommendations.push('Social Media Marketing', 'Digital Marketing Professional')
+      } else if (subInterest === 'content') {
+        recommendations.push('Content Marketing Mastery', 'Digital Marketing Professional')
+      } else if (subInterest === 'seo') {
+        recommendations.push('SEO & Analytics', 'Digital Marketing Professional')
+      } else if (subInterest === 'email') {
+        recommendations.push('Email Marketing Automation', 'Digital Marketing Professional')
+      } else {
+        // Fallback for marketing
+        recommendations.push('Digital Marketing Professional', 'Content Creation')
+      }
       break
       
     case 'webdev':
-      // Check for specific web dev area and skill level
-      const webdevSpecific = answers.find(answer => answer.questionId === 'q2-webdev')?.value
-      if (webdevSpecific === 'fullstack' || maxSkillLevel >= 7) {
-        recommendations.push('Full-Stack Web Development') // Your existing path
+      if (subInterest === 'frontend') {
+        if (maxSkillLevel >= 7) {
+          recommendations.push('Advanced Frontend Development', 'Full-Stack Web Development')
+        } else {
+          recommendations.push('Frontend Development Mastery', 'JavaScript Fundamentals')
+        }
+      } else if (subInterest === 'backend') {
+        if (maxSkillLevel >= 7) {
+          recommendations.push('Advanced Backend Development', 'Cloud-Native Development')
+        } else {
+          recommendations.push('Backend Development', 'Database Design')
+        }
+      } else if (subInterest === 'fullstack') {
+        if (maxSkillLevel >= 7) {
+          recommendations.push('Full-Stack Web Development', 'Cloud-Native Development')
+        } else {
+          recommendations.push('Full-Stack Web Development', 'Frontend Development Mastery')
+        }
+      } else if (subInterest === 'mobile') {
+        recommendations.push('Mobile App Development', 'React Native Development')
       } else {
-        recommendations.push('Frontend Development Mastery') // Your existing path
+        // Fallback for webdev
+        recommendations.push('Frontend Development Mastery', 'Full-Stack Web Development')
       }
       break
       
     default:
-      // Fallback to a general path
-      recommendations.push('Frontend Development Mastery')
+      // Fallback to general paths
+      recommendations.push('Digital Literacy Fundamentals', 'Creative Thinking & Problem Solving')
   }
-  
-  // Add cloud path for advanced users
+
+  // Add goal-based paths
+  if (goal === 'freelance') {
+    recommendations.push('Freelancer Success Path', 'Business & Client Management')
+  } else if (goal === 'employment') {
+    recommendations.push('Job Readiness Program', 'Interview & Portfolio Preparation')
+  } else if (goal === 'business') {
+    recommendations.push('Entrepreneurship Bootcamp', 'Startup Fundamentals')
+  }
+
+  // Add time-based adjustments
+  if (timeCommitment === 'intensive') {
+    recommendations.push('Accelerated Learning Track', 'Bootcamp Programs')
+  } else if (timeCommitment === 'low') {
+    recommendations.push('Part-Time Learning Path', 'Micro-Learning Modules')
+  }
+
+  // Add advanced paths for experienced learners
   if (maxSkillLevel >= 8) {
-    recommendations.push('Cloud-Native Development')
+    recommendations.push('Cloud-Native Development', 'Leadership & Mentoring')
   }
-  
-  return recommendations
+
+  // Add learning style specific recommendations
+  if (learningStyle === 'mentor') {
+    recommendations.push('Mentored Project Development', '1-on-1 Coaching Program')
+  } else if (learningStyle === 'interactive') {
+    recommendations.push('Hands-On Workshop Series', 'Project-Based Learning')
+  }
+
+  // Remove duplicates and limit to top 5 recommendations
+  const uniqueRecommendations = [...new Set(recommendations)]
+  return uniqueRecommendations.slice(0, 5)
 }
 
 // Save quiz results to database using existing user_assessments table
