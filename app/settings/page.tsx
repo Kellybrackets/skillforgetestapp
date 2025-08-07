@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
 import { Spinner } from "@/components/ui/spinner"
 import { User, Bell, Moon, Sun, Shield, CreditCard, LogOut, AlertCircle } from "lucide-react"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/components/providers/auth-provider"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { 
@@ -24,6 +24,7 @@ import {
   getOrCreateUserPreferences,
   logUserActivity 
 } from "@/lib/user-profiles"
+import type { UserProfile, UserPreferences } from "@/types/user"
 import { uploadProfilePicture, deleteProfilePicture, resizeImage } from "@/lib/profile-picture"
 
 export default function SettingsPage() {
@@ -70,21 +71,26 @@ export default function SettingsPage() {
       }
       
       try {
-        // Load user profile directly from database
-        const profile = await getOrCreateUserProfile(user.id, {
+        // Load user profile directly from database with proper typing
+        const profile: UserProfile | null = await getOrCreateUserProfile(user.id, {
           full_name: user.user_metadata?.full_name || ''
         })
         
+        // Proper null check with TypeScript
         if (profile) {
           setName(profile.full_name || '')
           setAvatarUrl(profile.avatar_url || null)
+        } else {
+          // Fallback if profile creation/retrieval failed
+          setName(user.user_metadata?.full_name || '')
+          setAvatarUrl(user.user_metadata?.avatar_url || null)
         }
         
         // Set bio from auth metadata since profiles table doesn't have bio field
         setBio(user.user_metadata?.bio || '')
         
-        // Load user preferences directly from database
-        const preferences = await getOrCreateUserPreferences(user.id)
+        // Load user preferences directly from database with proper typing
+        const preferences: UserPreferences | null = await getOrCreateUserPreferences(user.id)
         
         if (preferences) {
           setEmailNotifications(preferences.email_notifications ?? true)
@@ -101,7 +107,8 @@ export default function SettingsPage() {
         // Fallback to auth metadata
         setEmail(user.email || "")
         setName(user.user_metadata?.full_name || "")
-        setBio(user.user_metadata?.bio || "")  // Get bio from auth metadata since profiles table doesn't have it
+        setBio(user.user_metadata?.bio || "")
+        setAvatarUrl(user.user_metadata?.avatar_url || null)
         
         // Load saved preferences from localStorage as fallback
         const savedNotifications = localStorage.getItem("notificationPreferences")
@@ -159,8 +166,8 @@ export default function SettingsPage() {
 
       console.log('✅ Avatar uploaded successfully:', result.url)
 
-      // Update profile in database first
-      const updatedProfile = await updateUserProfile(user.id, {
+      // Update profile in database first with proper typing
+      const updatedProfile: UserProfile | null = await updateUserProfile(user.id, {
         avatar_url: result.url
       })
 
@@ -225,8 +232,8 @@ export default function SettingsPage() {
       // Delete from storage
       await deleteProfilePicture(avatarUrl)
 
-      // Update profile in database
-      const updatedProfile = await updateUserProfile(user.id, {
+      // Update profile in database with proper typing
+      const updatedProfile: UserProfile | null = await updateUserProfile(user.id, {
         avatar_url: undefined
       })
 
@@ -268,10 +275,9 @@ export default function SettingsPage() {
     setIsSavingProfile(true)
 
     try {
-      // Update profile directly in database (only full_name for profiles table)
-      const updatedProfile = await updateUserProfile(user.id, {
+      // Update profile directly in database with proper typing
+      const updatedProfile: UserProfile | null = await updateUserProfile(user.id, {
         full_name: name.trim()
-        // Note: bio field doesn't exist in profiles table
       })
       
       if (!updatedProfile) {
@@ -315,8 +321,8 @@ export default function SettingsPage() {
     setIsSavingNotifications(true)
 
     try {
-      // Save directly to database
-      const updatedPreferences = await updateUserPreferences(user.id, {
+      // Save directly to database with proper typing
+      const updatedPreferences: UserPreferences | null = await updateUserPreferences(user.id, {
         email_notifications: emailNotifications,
         course_reminders: courseReminders,
         mentor_messages: mentorMessages,

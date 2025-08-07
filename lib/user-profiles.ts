@@ -1,37 +1,12 @@
 // lib/user-profiles.ts - Database operations for user profiles
 import { createSupabaseClient } from '@/lib/supabase'
-
-export interface UserProfile {
-  id: string
-  email?: string
-  full_name?: string
-  avatar_url?: string
-  created_at?: string
-  updated_at?: string
-  // Note: Using profiles table schema - simpler than user_profiles
-}
-
-export interface UserPreferences {
-  id: string
-  user_id: string
-  email_notifications?: boolean
-  course_reminders?: boolean
-  mentor_messages?: boolean
-  marketing_emails?: boolean
-  community_updates?: boolean
-  event_notifications?: boolean
-  push_notifications?: boolean
-  theme?: 'light' | 'dark' | 'system'
-  language?: string
-  timezone?: string
-  dashboard_layout?: string
-  profile_visibility?: 'public' | 'private' | 'connections'
-  show_progress?: boolean
-  show_badges?: boolean
-  allow_mentor_contact?: boolean
-  created_at?: string
-  updated_at?: string
-}
+import type { 
+  UserProfile, 
+  UserPreferences, 
+  CreateUserProfileData, 
+  UpdateUserProfileData, 
+  UpdateUserPreferencesData 
+} from '@/types/user'
 
 // Get user profile by user ID
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
@@ -39,9 +14,9 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
     const supabase = createSupabaseClient()
     
     const { data, error } = await supabase
-      .from('profiles')  // Changed from 'user_profiles'
+      .from('profiles')
       .select('*')
-      .eq('id', userId)  // Changed from 'user_id' to 'id'
+      .eq('id', userId)
       .single()
     
     if (error) {
@@ -49,7 +24,7 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
       return null
     }
     
-    return data
+    return data as UserProfile
   } catch (error) {
     console.error('Exception fetching user profile:', error)
     return null
@@ -59,27 +34,27 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
 // Get or create user profile
 export const getOrCreateUserProfile = async (
   userId: string, 
-  defaultData?: Partial<UserProfile>
+  defaultData?: CreateUserProfileData
 ): Promise<UserProfile | null> => {
   try {
     const supabase = createSupabaseClient()
     
     // First try to get existing profile
     const { data: existingProfile, error: fetchError } = await supabase
-      .from('profiles')  // Changed from 'user_profiles'
+      .from('profiles')
       .select('*')
-      .eq('id', userId)  // Changed from 'user_id' to 'id'
+      .eq('id', userId)
       .single()
     
     if (existingProfile) {
-      return existingProfile
+      return existingProfile as UserProfile
     }
     
     // If no profile exists, create one (profiles table auto-creates via trigger)
     if (fetchError?.code === 'PGRST116') { // No rows returned
       const profileData = {
-        id: userId,  // profiles table uses 'id' not 'user_id'
-        email: '', // Will be filled by trigger
+        id: userId,
+        email: '',
         full_name: defaultData?.full_name || '',
         avatar_url: defaultData?.avatar_url || null
       }
@@ -95,7 +70,7 @@ export const getOrCreateUserProfile = async (
         return null
       }
       
-      return newProfile
+      return newProfile as UserProfile
     }
     
     console.error('Error fetching user profile:', fetchError)
@@ -109,7 +84,7 @@ export const getOrCreateUserProfile = async (
 // Update user profile
 export const updateUserProfile = async (
   userId: string, 
-  updates: Partial<UserProfile>
+  updates: UpdateUserProfileData
 ): Promise<UserProfile | null> => {
   try {
     const supabase = createSupabaseClient()
@@ -153,7 +128,7 @@ export const updateUserProfile = async (
     }
     
     console.log('✅ Profile updated successfully:', data)
-    return data
+    return data as UserProfile
   } catch (error) {
     console.error('Exception updating user profile:', error)
     return null
@@ -176,7 +151,7 @@ export const getUserPreferences = async (userId: string): Promise<UserPreference
       return null
     }
     
-    return data
+    return data as UserPreferences
   } catch (error) {
     console.error('Exception fetching user preferences:', error)
     return null
@@ -196,7 +171,7 @@ export const getOrCreateUserPreferences = async (userId: string): Promise<UserPr
       .single()
     
     if (existingPrefs) {
-      return existingPrefs
+      return existingPrefs as UserPreferences
     }
     
     // If no preferences exist, create default ones
@@ -231,7 +206,7 @@ export const getOrCreateUserPreferences = async (userId: string): Promise<UserPr
         return null
       }
       
-      return newPrefs
+      return newPrefs as UserPreferences
     }
     
     console.error('Error fetching user preferences:', fetchError)
@@ -245,7 +220,7 @@ export const getOrCreateUserPreferences = async (userId: string): Promise<UserPr
 // Update user preferences
 export const updateUserPreferences = async (
   userId: string, 
-  updates: Partial<UserPreferences>
+  updates: UpdateUserPreferencesData
 ): Promise<UserPreferences | null> => {
   try {
     const supabase = createSupabaseClient()
@@ -265,7 +240,7 @@ export const updateUserPreferences = async (
       return null
     }
     
-    return data
+    return data as UserPreferences
   } catch (error) {
     console.error('Exception updating user preferences:', error)
     return null
@@ -317,7 +292,7 @@ export const getPublicUserProfile = async (userId: string): Promise<UserProfile 
       return null
     }
     
-    return data || null
+    return data as UserProfile || null
   } catch (error) {
     console.error('Exception fetching public user profile:', error)
     return null
@@ -339,7 +314,7 @@ export const searchUserProfiles = async (query: string, limit: number = 20): Pro
       return []
     }
     
-    return data || []
+    return (data as UserProfile[]) || []
   } catch (error) {
     console.error('Exception searching user profiles:', error)
     return []

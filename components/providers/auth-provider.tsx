@@ -46,7 +46,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     mountedRef.current = true
     
-    // Prevent multiple initializations
     if (initRef.current) {
       console.log('🔐 Auth already initialized, skipping...')
       return
@@ -159,15 +158,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     console.log('🔐 Sign out attempt')
-    const supabase = createSupabaseClient()
-    const result = await supabase.auth.signOut()
     
-    // Reset the initialization flag on sign out
-    if (!result.error) {
-      initRef.current = false
+    try {
+      const supabase = createSupabaseClient()
+      
+      // Check if we have a session before attempting logout
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      
+      if (!currentSession) {
+        console.warn('⚠️ No active session found during logout')
+        // Clear local state even if no session
+        setAuthState({
+          user: null,
+          session: null,
+          loading: false,
+          initialized: true,
+        })
+        return { error: null }
+      }
+      
+      const result = await supabase.auth.signOut()
+      
+      if (!result.error) {
+        // Reset initialization flag on successful sign out
+        initRef.current = false
+        
+        // Clear local state
+        setAuthState({
+          user: null,
+          session: null,
+          loading: false,
+          initialized: true,
+        })
+      }
+      
+      return result
+      
+    } catch (error: any) {
+      console.error('💥 Sign out exception:', error)
+      
+      // Clear local state even on error
+      setAuthState({
+        user: null,
+        session: null,
+        loading: false,
+        initialized: true,
+      })
+      
+      return { 
+        error: { message: error.message || 'Sign out failed' } as AuthError 
+      }
     }
-    
-    return result
   }
 
   const updateUser = async (attributes: any) => {

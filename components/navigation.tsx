@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Search, Menu, X, Bell, Settings, LogOut, User } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useTheme } from "next-themes"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/components/providers/auth-provider"
 import { useToast } from "@/hooks/use-toast"
 import {
   DropdownMenu,
@@ -225,10 +225,6 @@ export default function Navigation() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleNavigation('/dashboard')}>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Dashboard</span>
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleNavigation('/settings')}>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>

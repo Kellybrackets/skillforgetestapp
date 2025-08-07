@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle, Eye, EyeOff, UserPlus, Info } from "lucide-react"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/components/providers/auth-provider"
 
 export default function RegisterPage() {
   const router = useRouter()

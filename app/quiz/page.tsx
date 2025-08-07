@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Palette, Brain, Code, TrendingUp, BookOpen, Award, User, Star, Lightbulb, Cpu, Megaphone, Globe } from "lucide-react"
 import Link from "next/link"
 import confetti from "canvas-confetti"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/components/providers/auth-provider"
 import { saveQuizResults } from "@/lib/quiz"
 import { 
   quizQuestions, 

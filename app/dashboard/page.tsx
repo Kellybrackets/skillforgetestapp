@@ -28,7 +28,7 @@ import { EmptyState } from "@/components/empty-state"
 import { Spinner } from "@/components/ui/spinner"
 import { Progress } from "@/components/ui/progress"
 import Link from "next/link"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/components/providers/auth-provider"
 import { getUserBadge, getUserSkillLevels, getRecommendedPaths, getUserQuizResults, hasUserCompletedQuiz } from "@/lib/quiz"
 
 // Mock courses data

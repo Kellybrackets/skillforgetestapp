@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Briefcase, BookOpen, Lightbulb, AlertCircle, Eye, EyeOff } from "lucide-react"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/components/providers/auth-provider"
 import { hasUserCompletedQuiz } from "@/lib/quiz"
 
 export default function LoginPage() {

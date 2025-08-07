@@ -1,31 +1,25 @@
-'use client'
+// components/providers/app-providers.tsx
+"use client"
 
-import { ThemeProvider } from 'next-themes'
-import { useEffect, useState } from 'react'
+import React from "react"
+import { ThemeProvider } from "next-themes"
+import { AuthProvider } from "@/components/providers/auth-provider"
 
 interface AppProvidersProps {
   children: React.ReactNode
 }
 
 export function AppProviders({ children }: AppProvidersProps) {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return <>{children}</>
-  }
-
   return (
-    <ThemeProvider 
-      attribute="class" 
-      defaultTheme="system" 
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
       enableSystem
       disableTransitionOnChange
     >
-      {children}
+      <AuthProvider>
+        {children}
+      </AuthProvider>
     </ThemeProvider>
   )
 }
