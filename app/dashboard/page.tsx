@@ -49,6 +49,19 @@ const iconMap = {
   TrendingUp
 }
 
+// Color mapping to ensure Tailwind includes these classes
+const pathColorMap: Record<string, string> = {
+  'web-development': 'from-blue-500 to-cyan-600',
+  'ai-data-science': 'from-purple-500 to-violet-600',
+  'design-creativity': 'from-pink-500 to-red-600',
+  'digital-marketing': 'from-green-500 to-emerald-600',
+}
+
+// Get path color with fallback
+const getPathColor = (pathId: string, originalColor?: string): string => {
+  return originalColor || pathColorMap[pathId] || 'from-blue-500 to-cyan-600'
+}
+
 // Mock courses data
 const allCourses = [
   {
@@ -925,7 +938,7 @@ export default function DashboardPage() {
         const pathTitle = path.title
         const pathSlug = 'slug' in path && path.slug ? path.slug : path.id
         const pathCourses = 'courses' in path ? path.courses : ('defaultProgress' in path ? 6 : 0)
-        const pathColor = path.color || 'from-blue-500 to-cyan-600'
+        const pathColor = getPathColor(pathId, path.color)
         const pathUnlocks = ('unlocks' in path ? path.unlocks : []) || []
         const pathEstimatedDuration = 'estimated_duration' in path ? path.estimated_duration : 
                                      'estimatedDuration' in path ? path.estimatedDuration : '3-6 months'

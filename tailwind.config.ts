@@ -8,6 +8,22 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],
+  safelist: [
+    // Learning path gradient colors
+    'from-blue-500',
+    'to-cyan-600',
+    'from-purple-500',
+    'to-violet-600',
+    'from-pink-500',
+    'to-red-600',
+    'from-green-500',
+    'to-emerald-600',
+    // Ensure gradient direction classes are included
+    'bg-gradient-to-r',
+    'bg-gradient-to-br',
+    'bg-gradient-to-l',
+    'bg-gradient-to-bl',
+  ],
   theme: {
     extend: {
       colors: {
