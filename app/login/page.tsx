@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,7 @@ import { Briefcase, BookOpen, Lightbulb, AlertCircle, Eye, EyeOff } from "lucide
 import { useAuth } from "@/components/providers/auth-provider"
 import { hasUserCompletedQuiz } from "@/lib/quiz"
 
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { signIn, isAuthenticated, loading, initialized, user } = useAuth()
@@ -361,5 +361,13 @@ const checkQuizCompletion = async (userId?: string): Promise<boolean> => {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginPageInner />
+    </Suspense>
   )
 }

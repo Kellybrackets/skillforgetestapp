@@ -1076,6 +1076,75 @@ export function PortfolioBuilder() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle>Portfolio Preview</CardTitle>
-                <div className="flex items-center gap-1 text-xs text-muted-fore\
-\
-\
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span>Preview Mode:</span>
+                  <Button 
+                    variant={previewMode === "desktop" ? "default" : "outline"} 
+                    size="sm"
+                    className="flex-1 flex items-center justify-center gap-2"
+                    onClick={() => setPreviewMode("desktop")}
+                  >
+                    <Monitor className="h-4 w-4" />
+                    Desktop
+                  </Button>
+                  <Button 
+                    variant={previewMode === "tablet" ? "default" : "outline"} 
+                    size="sm"
+                    className="flex-1 flex items-center justify-center gap-2"
+                    onClick={() => setPreviewMode("tablet")}
+                  >
+                    <Tablet className="h-4 w-4" />
+                    Tablet
+                  </Button>
+                  <Button 
+                    variant={previewMode === "mobile" ? "default" : "outline"} 
+                    size="sm"
+                    className="flex-1 flex items-center justify-center gap-2"
+                    onClick={() => setPreviewMode("mobile")}
+                  >
+                    <Smartphone className="h-4 w-4" />
+                    Mobile
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-lg overflow-hidden bg-white">
+                <div className={`${previewMode === "desktop" ? "w-full" : previewMode === "tablet" ? "w-3/4 mx-auto" : "w-1/2 mx-auto"} transition-all duration-300`}>
+                  <div className="bg-gray-100 p-4 border-b">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                      <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    {/* Portfolio Preview Content */}
+                    <div className="text-center">
+                      <h1 className="text-2xl font-bold mb-4">{portfolioData.about.name || "Your Name"}</h1>
+                      <p className="text-muted-foreground mb-6">{portfolioData.about.title || "Your Title"}</p>
+                      
+                      {portfolioData.projects.length > 0 && (
+                        <div className="mb-6">
+                          <h2 className="text-xl font-semibold mb-4">Projects</h2>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {portfolioData.projects.slice(0, 2).map((project, index) => (
+                              <div key={index} className="border rounded-lg p-4">
+                                <h3 className="font-semibold">{project.title}</h3>
+                                <p className="text-sm text-muted-foreground">{project.description}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}

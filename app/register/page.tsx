@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle, Eye, EyeOff, UserPlus, Info } from "lucide-react"
 import { useAuth } from "@/components/providers/auth-provider"
 
-export default function RegisterPage() {
+function RegisterPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const authData = useAuth()
@@ -421,5 +421,13 @@ export default function RegisterPage() {
         </form>
       </Card>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <RegisterPageInner />
+    </Suspense>
   )
 }

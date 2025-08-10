@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { PricingModal } from "@/components/pricing-modal"
@@ -23,6 +22,11 @@ import {
   AlertCircle,
   RefreshCw,
   User,
+  Brain,
+  Palette,
+  Globe,
+  Target,
+  Star,
 } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { Spinner } from "@/components/ui/spinner"
@@ -30,6 +34,20 @@ import { Progress } from "@/components/ui/progress"
 import Link from "next/link"
 import { useAuth } from "@/components/providers/auth-provider"
 import { getUserBadge, getUserSkillLevels, getRecommendedPaths, getUserQuizResults, hasUserCompletedQuiz } from "@/lib/quiz"
+import LearningPathsRegistry, { LearningPathConfig } from "@/lib/learning-paths/learning-paths-registry"
+import { getDashboardLearningPathProgress } from "@/lib/learning-paths/learning-path-progress"
+import { fetchLearningPathsWithProgress } from "@/lib/api/learning-paths-api"
+import { DatabaseLearningPath } from "@/lib/database/learning-paths"
+
+// Icon mapping for dynamic paths
+const iconMap = {
+  Globe,
+  Brain,
+  Palette,
+  Target,
+  BookOpen,
+  TrendingUp
+}
 
 // Mock courses data
 const allCourses = [
@@ -123,43 +141,6 @@ const allCourses = [
   },
 ]
 
-// Learning paths
-const learningPaths = [
-  {
-    id: 1,
-    title: "Freelancer",
-    description: "Build skills to start your freelance career",
-    icon: Briefcase,
-    courses: 12,
-    color: "from-blue-400 to-cyan-500",
-    progress: 25,
-    unlocks: ["CV Builder", "Portfolio Builder"],
-    path: "/learning-paths/freelancer",
-  },
-  {
-    id: 2,
-    title: "AI Creator",
-    description: "Master AI tools and techniques",
-    icon: Code,
-    courses: 8,
-    color: "from-purple-500 to-violet-600",
-    progress: 10,
-    unlocks: ["AI Project Showcase"],
-    path: "/learning-paths/ai-creator",
-  },
-  {
-    id: 3,
-    title: "Design Mastery",
-    description: "Become a professional designer",
-    icon: PaintBrush,
-    courses: 15,
-    color: "from-red-400 to-red-600",
-    progress: 5,
-    unlocks: ["Design Portfolio"],
-    path: "/learning-paths/design",
-  },
-]
-
 // Progress tracker data
 const progressData = [
   {
@@ -215,7 +196,6 @@ interface QuizResults {
 }
 
 export default function DashboardPage() {
-  const router = useRouter()
   const authData = useAuth()
   
   // Add debugging
@@ -236,6 +216,12 @@ export default function DashboardPage() {
   const [userBadge, setUserBadge] = useState<any>(null)
   const [userSkillLevels, setUserSkillLevels] = useState<Record<string, number>>({})
   const [recommendedPaths, setRecommendedPaths] = useState<string[]>([])
+  
+  // NEW: Dynamic learning paths state
+  const [personalizedPaths, setPersonalizedPaths] = useState<(LearningPathConfig & { defaultProgress?: number; isRecommended?: boolean } | DatabaseLearningPath & { defaultProgress?: number; isRecommended?: boolean })[]>([])
+  const [pathsLoading, setPathsLoading] = useState(true)
+  const [realCourseProgress, setRealCourseProgress] = useState<Record<string, any>>({})
+  const [useDatabase, setUseDatabase] = useState(true)
 
   // Set mounted flag
   useEffect(() => {
@@ -359,7 +345,7 @@ export default function DashboardPage() {
     loadQuizResults()
   }, [mounted, user?.id]) // Add user?.id as dependency
 
-  // Load advanced quiz data from database
+  // Load advanced quiz data from database and personalize learning paths
   useEffect(() => {
     const loadAdvancedQuizData = async () => {
       if (user?.id) {
@@ -379,6 +365,7 @@ export default function DashboardPage() {
           setRecommendedPaths(paths)
           
           console.log('✅ Advanced quiz data loaded:', { badge, skillLevels, paths })
+          console.log('🎯 Recommended paths from database:', paths)
         } catch (error) {
           console.error('Error loading advanced quiz data:', error)
           // Don't block the UI if this fails
@@ -392,13 +379,239 @@ export default function DashboardPage() {
     }
   }, [user?.id, isLoadingQuizResults])
 
+  // NEW: Load and personalize learning paths using database or registry
+  useEffect(() => {
+    const loadPersonalizedPaths = async () => {
+      setPathsLoading(true)
+      try {
+        let paths: (LearningPathConfig | DatabaseLearningPath)[] = []
+        let dbRecommendations: any[] = []
+        let dbProgress: Record<string, any> = {}
+        
+        // Try database first
+        if (useDatabase && user?.id) {
+          try {
+            console.log('📚 Trying to load from database...')
+            const dbData = await fetchLearningPathsWithProgress(user.id)
+            if (dbData.paths && dbData.paths.length > 0) {
+              console.log('✅ Using database paths:', dbData.paths.length)
+              paths = dbData.paths
+              dbRecommendations = dbData.recommendations || []
+              dbProgress = dbData.progress || {}
+            }
+          } catch (error) {
+            console.warn('⚠️ Database failed, falling back to registry:', error)
+            setUseDatabase(false)
+          }
+        }
+        
+        // Fallback to registry if database failed or not available
+        if (paths.length === 0) {
+          console.log('📚 Using registry fallback')
+          paths = LearningPathsRegistry.getAllPaths()
+          
+          // Apply quiz-based personalization for registry paths
+          if (quizResults || Object.keys(userSkillLevels).length > 0) {
+            const interests = extractInterestsFromQuiz(quizResults)
+            const skillLevel = extractSkillLevelFromSkillLevels(userSkillLevels)
+            
+            console.log('🎯 Extracted interests and skill level:', { interests, skillLevel })
+            
+            if (interests.length > 0 || skillLevel) {
+              const recommendedByQuiz = LearningPathsRegistry.getRecommendedPaths(interests, skillLevel)
+              console.log('📚 Recommended paths by quiz analysis:', recommendedByQuiz.map(p => p.title))
+              paths = recommendedByQuiz
+            }
+          }
+        }
+        
+        console.log('📚 Final paths to display:', paths.map(p => p.title))
+
+        // Apply progress and recommendation-based sorting
+        const personalizedPathsData = paths.map(path => {
+          let progress = 0
+          let isRecommended = false
+          
+          // For database paths, use direct recommendation scores
+          if ('category' in path && dbRecommendations.length > 0) {
+            const dbRecommendation = dbRecommendations.find(r => r.path_id === path.id)
+            isRecommended = dbRecommendation && dbRecommendation.recommendation_score > 50
+            
+            // Use database progress if available
+            const pathProgress = dbProgress[path.id]
+            if (pathProgress) {
+              progress = pathProgress.progress_percentage || 0
+            }
+          } else {
+            // For registry paths, use legacy mapping logic
+            const pathMappings: Record<string, string[]> = {
+              'Web Development': [
+                'Frontend Development Mastery', 'Advanced Frontend Development',
+                'Backend Development', 'Advanced Backend Development', 
+                'Full-Stack Web Development', 'Web Development Learning Path'
+              ],
+              'AI & Data Science': [
+                'Data Science Fundamentals', 'Advanced Machine Learning',
+                'Natural Language Processing', 'Computer Vision & Image AI',
+                'Data Analytics Fundamentals', 'SQL & Database Analytics',
+                'Advanced Business Intelligence', 'AI & Data Science Learning Path'
+              ],
+              'Design & Creativity': [
+                'UI/UX Design Fundamentals', 'Advanced UI/UX Design', 'Design Systems Mastery',
+                'Graphic Design Professional', 'Creative Design Fundamentals',
+                'Animation & Motion Graphics', '3D Modeling & Animation',
+                'Motion Graphics & 2D Animation', 'Video Production & Editing',
+                'Character Animation', 'Photography Mastery',
+                'Design & Creativity Learning Path'
+              ],
+              'Digital Marketing': [
+                'Digital Marketing Professional', 'Social Media Marketing',
+                'Content Marketing Mastery', 'SEO & Analytics',
+                'Email Marketing Automation', 'Digital Marketing Learning Path'
+              ]
+            }
+            
+            const pathKeys = pathMappings[path.title] || []
+            isRecommended = pathKeys.some(key => recommendedPaths.includes(key))
+            
+            // Calculate progress based on skill levels for registry paths
+            if (path.title === 'Web Development' && (userSkillLevels.webdev || userSkillLevels.frontend || userSkillLevels.backend)) {
+              progress = Math.max(userSkillLevels.webdev || 0, userSkillLevels.frontend || 0, userSkillLevels.backend || 0) * 10
+            } else if (path.title === 'AI & Data Science' && (userSkillLevels.ai || userSkillLevels.python)) {
+              progress = Math.max(userSkillLevels.ai || 0, userSkillLevels.python || 0) * 10
+            } else if (path.title === 'Design & Creativity' && (userSkillLevels.design || userSkillLevels.uiux)) {
+              progress = Math.max(userSkillLevels.design || 0, userSkillLevels.uiux || 0) * 10
+            } else if (path.title === 'Digital Marketing' && (userSkillLevels.marketing || userSkillLevels.social)) {
+              progress = Math.max(userSkillLevels.marketing || 0, userSkillLevels.social || 0) * 10
+            }
+          }
+          
+          // Debug logging
+          if (recommendedPaths.length > 0 || dbRecommendations.length > 0) {
+            console.log(`🎯 Checking ${path.title}:`, {
+              isRecommended,
+              progress,
+              source: 'category' in path ? 'database' : 'registry'
+            })
+          }
+          
+          return {
+            ...path,
+            defaultProgress: Math.round(progress),
+            isRecommended
+          }
+        })
+        
+        // Sort paths: recommended first, then by progress, then by original order
+        personalizedPathsData.sort((a, b) => {
+          if (a.isRecommended && !b.isRecommended) return -1
+          if (!a.isRecommended && b.isRecommended) return 1
+          if (a.defaultProgress !== b.defaultProgress) return b.defaultProgress - a.defaultProgress
+          return a.id.localeCompare(b.id)
+        })
+        
+        console.log('📊 Final personalized paths:', personalizedPathsData.map(p => ({
+          title: p.title,
+          isRecommended: p.isRecommended,
+          progress: p.defaultProgress,
+          source: 'category' in p ? 'database' : 'registry'
+        })))
+        
+        setPersonalizedPaths(personalizedPathsData)
+        setRealCourseProgress(dbProgress) // Use database progress if available
+        console.log('🎯 Personalized paths loaded:', personalizedPathsData.length)
+        
+        // Safety check: If no paths are loaded, use defaults
+        if (personalizedPathsData.length === 0) {
+          console.warn('⚠️ No personalized paths found, falling back to all paths')
+          const fallbackPaths = LearningPathsRegistry.getAllPaths()
+          setPersonalizedPaths(fallbackPaths)
+        }
+        
+      } catch (error) {
+        console.error('Error loading personalized paths:', error)
+        // Fallback to default paths
+        const fallbackPaths = LearningPathsRegistry.getAllPaths()
+        console.log('🔄 Using fallback paths:', fallbackPaths.map(p => p.title))
+        setPersonalizedPaths(fallbackPaths)
+      } finally {
+        setPathsLoading(false)
+      }
+    }
+    
+    // Load paths when quiz data is ready
+    if (!isLoadingQuizResults) {
+      loadPersonalizedPaths()
+    }
+  }, [isLoadingQuizResults, quizResults, userSkillLevels, recommendedPaths, user?.id, useDatabase])
+
+  // Load actual course progress from database
+  useEffect(() => {
+    async function loadCourseProgress() {
+      if (!user?.id || personalizedPaths.length === 0) return
+      try {
+        const pathIds = personalizedPaths.map((path) => path.id)
+        const progress = await getDashboardLearningPathProgress(user.id, pathIds)
+        setRealCourseProgress(progress)
+        console.log('✅ Real course progress loaded:', progress)
+      } catch (error) {
+        console.error('❌ Error loading course progress:', error)
+      }
+    }
+
+    loadCourseProgress()
+  }, [user?.id, personalizedPaths])
+
+  // Helper functions for quiz analysis
+  const extractInterestsFromQuiz = (quizResults: QuizResults | null): string[] => {
+    if (!quizResults?.answers) return []
+    
+    const interests: string[] = []
+    Object.values(quizResults.answers).forEach((answer: any) => {
+      if (typeof answer === 'string') {
+        switch (answer) {
+          case 'design':
+            interests.push('design', 'creativity', 'ui/ux')
+            break
+          case 'ai':
+            interests.push('ai', 'machine learning', 'data science')
+            break
+          case 'marketing':
+            interests.push('marketing', 'social media', 'analytics')
+            break
+          case 'coding':
+            interests.push('programming', 'web development', 'software')
+            break
+        }
+      }
+    })
+    return interests
+  }
+
+  const extractSkillLevelFromSkillLevels = (skillLevels: Record<string, number>): string | undefined => {
+    const levels = Object.values(skillLevels)
+    if (levels.length === 0) return undefined
+    
+    const avgLevel = levels.reduce((sum, level) => sum + level, 0) / levels.length
+    if (avgLevel >= 7) return 'advanced'
+    if (avgLevel >= 4) return 'intermediate'
+    return 'beginner'
+  }
+
+  // Get path icon component
+  const getPathIcon = (iconName: string) => {
+    const IconComponent = (iconMap as any)[iconName] || BookOpen
+    return IconComponent
+  }
+
   // Redirect unauthenticated users  
   useEffect(() => {
     if (mounted && initialized && !loading && !isAuthenticated) {
       console.log('🔒 User not authenticated, redirecting to login')
-      router.push('/login?redirectTo=/dashboard')
+      // Note: Using window.location instead of router to avoid navigation component conflicts
+      window.location.href = '/login?redirectTo=/dashboard'
     }
-  }, [mounted, initialized, loading, isAuthenticated, router])
+  }, [mounted, initialized, loading, isAuthenticated])
 
   // Set recommended course based on quiz results
   useEffect(() => {
@@ -441,7 +654,7 @@ export default function DashboardPage() {
       }
       
       console.log('👋 Logged out successfully')
-      router.push("/login")
+      window.location.href = "/login"
     } catch (error) {
       console.error('Logout error:', error)
     }
@@ -453,7 +666,7 @@ export default function DashboardPage() {
     document.cookie = "quizCompleted=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
     document.cookie = "quizResults=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
     console.log('🔄 Quiz results cleared, redirecting to quiz')
-    router.push('/quiz')
+    window.location.href = '/quiz'
   }
 
   const getDisplayName = () => {
@@ -681,44 +894,137 @@ export default function DashboardPage() {
           </Card>
         )}
 
-        {/* Learning Paths */}
-        <div className="mb-16">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">Learning Paths</h2>
-            <Button variant="ghost" size="sm">
-              View All
-            </Button>
-          </div>
+<div className="mb-16">
+  <div className="flex items-center justify-between mb-6">
+    <h2 className="text-2xl font-bold">Learning Paths</h2>
+    <Button variant="ghost" size="sm" asChild>
+      <Link href="/learning-paths">View All Paths</Link>
+    </Button>
+  </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {learningPaths.map((path) => (
-              <div key={path.id} className="bg-white dark:bg-gray-950 rounded-lg shadow-sm border overflow-hidden">
-                <div className={`bg-gradient-to-r ${path.color} p-8 text-white`}>
-                  <div className="mb-2">
-                    <path.icon className="h-8 w-8" />
-                  </div>
-                  <h3 className="text-xl font-bold mb-1">{path.title}</h3>
-                  <p className="text-white/90">{path.description}</p>
+  {pathsLoading ? (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {[1, 2, 3, 4].map((i) => (
+        <Card key={i} className="overflow-hidden">
+          <div className="h-32 bg-muted animate-pulse" />
+          <CardContent className="p-4">
+            <div className="h-4 bg-muted rounded animate-pulse mb-2" />
+            <div className="h-3 bg-muted rounded animate-pulse mb-4" />
+            <div className="h-8 bg-muted rounded animate-pulse" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  ) : (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {personalizedPaths.map((path) => {
+        const IconComponent = getPathIcon(path.icon || 'BookOpen')
+        
+        // Handle both database and registry paths
+        const pathId = path.id
+        const pathTitle = path.title
+        const pathSlug = 'slug' in path && path.slug ? path.slug : path.id
+        const pathCourses = 'courses' in path ? path.courses : ('defaultProgress' in path ? 6 : 0)
+        const pathColor = path.color || 'from-blue-500 to-cyan-600'
+        const pathUnlocks = ('unlocks' in path ? path.unlocks : []) || []
+        const pathEstimatedDuration = 'estimated_duration' in path ? path.estimated_duration : 
+                                     'estimatedDuration' in path ? path.estimatedDuration : '3-6 months'
+        
+        // Get actual progress from database
+        const pathProgress = realCourseProgress[pathId] || {
+          learning_path_id: pathId,
+          total_courses: pathCourses,
+          completed_courses: 0,
+          progress_percentage: path.defaultProgress || 0
+        }
+        
+        return (
+          <div key={pathId} className="bg-white dark:bg-gray-950 rounded-lg shadow-sm border overflow-hidden">
+            <div className={`bg-gradient-to-r ${pathColor} p-6 text-white relative`}>
+              {path.isRecommended && (
+                <Badge variant="secondary" className="absolute top-3 right-3 bg-white/20 text-white border-white/30">
+                  Recommended
+                </Badge>
+              )}
+              <div className="mb-2">
+                <IconComponent className="h-8 w-8" />
+              </div>
+              <h3 className="text-xl font-bold mb-1">{pathTitle}</h3>
+              <p className="text-white/90 text-sm">{'description' in path ? path.description : 'Learn essential skills for your career'}</p>
+            </div>
+            <div className="p-4">
+              {/* Course Progress Display */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-muted-foreground">Progress</span>
+                  <span className="font-medium">{pathProgress.progress_percentage}%</span>
                 </div>
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <span className="text-muted-foreground">{path.courses} courses</span>
-                    <Badge
-                      variant="secondary"
-                      className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100"
-                    >
-                      Popular
-                    </Badge>
-                  </div>
-                  <Link href={path.path}>
-                    <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">Explore Path</Button>
-                  </Link>
+                <Progress value={pathProgress.progress_percentage} className="h-2 mb-2" />
+                <div className="text-xs text-muted-foreground">
+                  {pathProgress.completed_courses}/{pathProgress.total_courses || pathCourses} courses completed
                 </div>
               </div>
-            ))}
+              
+              {/* Duration */}
+              <div className="flex items-center justify-between mb-4 text-sm text-muted-foreground">
+                <span>Duration</span>
+                <span>{pathEstimatedDuration}</span>
+              </div>
+              
+              {/* Unlocks section */}
+              <div className="mb-4">
+                <p className="text-xs text-muted-foreground mb-2">What you'll unlock:</p>
+                <div className="flex flex-wrap gap-1">
+                  {pathUnlocks.slice(0, 2).map((unlock, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs px-2 py-1">
+                      {unlock}
+                    </Badge>
+                  ))}
+                  {pathUnlocks.length > 2 && (
+                    <Badge variant="outline" className="text-xs px-2 py-1">
+                      +{pathUnlocks.length - 2} more
+                    </Badge>
+                  )}
+                  {pathUnlocks.length === 0 && (
+                    <Badge variant="secondary" className="text-xs px-2 py-1">
+                      Practical Skills
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              
+              {/* Status Indicator */}
+              <div className="mb-4">
+                {pathProgress.progress_percentage > 0 ? (
+                  <div className="flex items-center text-xs text-blue-600">
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    <span>In Progress</span>
+                  </div>
+                ) : path.isRecommended ? (
+                  <div className="flex items-center text-xs text-amber-600">
+                    <Star className="h-3 w-3 mr-1" />
+                    <span>Recommended for You</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <BookOpen className="h-3 w-3 mr-1" />
+                    <span>Ready to Start</span>
+                  </div>
+                )}
+              </div>
+              
+              <Link href={`/learning-paths/${pathSlug}`}>
+                <Button className="w-full" variant={path.isRecommended ? "default" : "outline"}>
+                  {pathProgress.progress_percentage > 0 ? "Continue Path" : "Explore Path"}
+                </Button>
+              </Link>
+            </div>
           </div>
-        </div>
-
+        )
+      })}
+    </div>
+  )}
+</div>
         {/* Second Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Portfolio Builder Card - 1 column */}
