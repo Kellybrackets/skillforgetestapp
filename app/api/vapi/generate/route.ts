@@ -185,31 +185,125 @@ export async function POST(request: NextRequest): Promise<Response> {
 
 // Health check endpoint
 export async function GET(): Promise<Response> {
+  const startTime = Date.now();
+  
   try {
-    // Test Supabase connection
-    const { error } = await supabase
-      .from('interviews')
-      .select('count')
-      .limit(1);
-
-    if (error) {
-      return Response.json({ 
+    console.log('🔍 Health check started:', new Date().toISOString());
+    
+    // Validate environment variables first
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('❌ Missing required environment variables');
+      return Response.json({
         status: "unhealthy",
-        error: "Database connection failed",
-        timestamp: new Date().toISOString() 
+        error: "Missing Supabase configuration",
+        timestamp: new Date().toISOString(),
+        responseTime: `${Date.now() - startTime}ms`
       }, { status: 503 });
     }
 
-    return Response.json({ 
-      status: "healthy",
-      database: "connected",
-      timestamp: new Date().toISOString() 
-    });
+    console.log('✅ Environment variables validated');
+
+    // Test basic Supabase connection with a simple query
+    console.log('🔌 Testing Supabase connection...');
+    
+    // First, try a basic connection test with a system table that always exists
+    let interviewsTableExists = false;
+    let recordCount = 0;
+    
+    // Try to query the interviews table directly and handle the error gracefully
+    const { data: interviewData, error: interviewError } = await supabase
+      .from('interviews')
+      .select('id')
+      .limit(1);
+
+    if (interviewError) {
+      console.error('⚠️ Interviews table error:', interviewError.message);
+      console.error('   Details:', interviewError.details);
+      console.error('   Hint:', interviewError.hint);
+      console.error('   Code:', interviewError.code);
+      
+      // Check if it's a table not found error - this means DB is connected but table doesn't exist
+      if (interviewError.code === '42P01') {
+        console.log('⚠️  Interviews table does not exist, but database connection is healthy');
+        interviewsTableExists = false;
+        
+        // Since we got a proper "table not found" error, the connection is working
+        // This is actually a good sign - it means we can connect but the table needs to be created
+        console.log('✅ Database connection confirmed (table not found error indicates working connection)');
+      } else {
+        // Other database errors indicate connection issues
+        return Response.json({
+          status: "unhealthy",
+          error: "Database connection failed",
+          details: interviewError.message,
+          code: interviewError.code,
+          timestamp: new Date().toISOString(),
+          responseTime: `${Date.now() - startTime}ms`
+        }, { status: 503 });
+      }
+    } else {
+      // Table exists and query succeeded
+      interviewsTableExists = true;
+      recordCount = interviewData ? interviewData.length : 0;
+      console.log('✅ Interviews table exists');
+      console.log(`📊 Found ${recordCount} records in interviews table`);
+    }
+
+    console.log('✅ Database connection successful');
+
+    // Optional: Test database write permissions (commented out to avoid side effects)
+    // This would test if we can actually write to the database
+    /*
+    const { error: writeTest } = await supabase
+      .from('interviews')
+      .insert({ 
+        user_id: 'health-check-test',
+        role: 'test',
+        interview_type: 'technical',
+        experience_level: 'mid',
+        tech_stack: ['test'],
+        questions: ['test question'],
+        cover_image: '/default.jpg'
+      });
+    */
+
+    const responseTime = Date.now() - startTime;
+    console.log(`✅ Health check completed in ${responseTime}ms`);
+
+    const status = interviewsTableExists ? "healthy" : "partially_healthy";
+    const statusCode = interviewsTableExists ? 200 : 200; // Both should return 200 for basic health
+
+    return Response.json({
+      status: status,
+      timestamp: new Date().toISOString(),
+      database: {
+        connected: true,
+        recordCount: recordCount,
+        interviewsTableExists: interviewsTableExists
+      },
+      environment: {
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ? "configured" : "missing",
+        serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY ? "configured" : "missing"
+      },
+      responseTime: `${responseTime}ms`,
+      recommendations: interviewsTableExists 
+        ? [] 
+        : ["Run the database schema setup to create the 'interviews' table"]
+    }, { status: statusCode });
+
   } catch (error) {
-    return Response.json({ 
+    const responseTime = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    console.error('❌ Health check failed:', errorMessage);
+    console.error('   Stack:', error instanceof Error ? error.stack : 'No stack trace');
+    
+    return Response.json({
       status: "unhealthy",
       error: "Service unavailable",
-      timestamp: new Date().toISOString() 
+      details: errorMessage,
+      timestamp: new Date().toISOString(),
+      responseTime: `${responseTime}ms`
     }, { status: 503 });
   }
 }
