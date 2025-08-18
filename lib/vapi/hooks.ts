@@ -45,6 +45,11 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
   // Vapi event handlers
   useEffect(() => {
     if (!mounted) return;
+    
+    // Check if vapi is properly initialized (not a mock object)
+    if (typeof window === "undefined" || !vapi.on) {
+      return;
+    }
 
     const handleCallStart = () => {
       console.log("📞 Call started");
@@ -122,6 +127,13 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
   const startInterview = useCallback(async () => {
     if (callStatus !== "idle") return;
 
+    // Check if vapi is properly initialized
+    if (typeof window === "undefined" || !vapi.start) {
+      console.error("Vapi not properly initialized");
+      addMessage("assistant", "Voice service not available. Please refresh the page and try again.");
+      return;
+    }
+
     setCallStatus("connecting");
     setMessages([]); // Clear previous messages
     
@@ -175,7 +187,11 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
 
   const stopInterview = useCallback(() => {
     console.log("⏹️ Stopping interview");
-    vapi.stop();
+    
+    // Check if vapi is properly initialized
+    if (typeof window !== "undefined" && vapi.stop) {
+      vapi.stop();
+    }
   }, []);
 
   const toggleRecording = useCallback(() => {
