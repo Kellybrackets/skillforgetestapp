@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback, memo } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -27,18 +27,10 @@ const navItems = [
   { name: "CareerForge", href: "/career-forge" },
 ]
 
-export default function Navigation() {
+const Navigation = memo(function Navigation() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, isAuthenticated, signOut, loading, initialized } = useAuth()
-  
-  console.log('🧭 Navigation render - auth state:', { 
-    isAuthenticated, 
-    loading, 
-    initialized, 
-    hasUser: !!user,
-    pathname 
-  })
   
   const { toast } = useToast()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -46,11 +38,73 @@ export default function Navigation() {
   const [searchQuery, setSearchQuery] = useState("")
   const [mounted, setMounted] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const { theme } = useTheme()
 
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const handleLogout = useCallback(async () => {
+    setIsLoggingOut(true)
+    setMobileMenuOpen(false)
+    
+    try {
+      const { error } = await signOut()
+      
+      if (error) {
+        throw new Error(error.message)
+      }
+      
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      })
+      
+      router.push('/login')
+    } catch (error: any) {
+      console.error('Logout error:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to logout. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }, [signOut, toast, router])
+
+  const handleNavigation = useCallback((href: string) => {
+    setMobileMenuOpen(false)
+    router.push(href)
+  }, [router])
+
+  const displayName = useMemo(() => {
+    if (user?.user_metadata?.full_name && typeof user.user_metadata.full_name === 'string') {
+      return user.user_metadata.full_name
+    }
+    if (user?.email) {
+      const name = user.email.split('@')[0]
+      return name.charAt(0).toUpperCase() + name.slice(1)
+    }
+    return 'User'
+  }, [user])
+
+  const userInitial = useMemo(() => {
+    if (user?.user_metadata?.full_name && typeof user.user_metadata.full_name === 'string') {
+      return user.user_metadata.full_name
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    }
+    if (user?.email) {
+      return user.email.charAt(0).toUpperCase()
+    }
+    return 'U'
+  }, [user])
+
+  const userEmail = user?.email || "user@example.com"
 
   // Don't show navigation on specific pages
   if (pathname === "/login" || pathname === "/register" || pathname === "/quiz" || pathname === "/") {
@@ -82,70 +136,6 @@ export default function Navigation() {
       </header>
     )
   }
-
-  const handleLogout = async () => {
-    setIsLoggingOut(true)
-    setMobileMenuOpen(false)
-    
-    try {
-      const { error } = await signOut()
-      
-      if (error) {
-        throw new Error(error.message)
-      }
-      
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
-      })
-      
-      router.push('/login')
-    } catch (error: any) {
-      console.error('Logout error:', error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to logout. Please try again.",
-        variant: "destructive"
-      })
-    } finally {
-      setIsLoggingOut(false)
-    }
-  }
-
-  const handleNavigation = (href: string) => {
-    setMobileMenuOpen(false)
-    router.push(href)
-  }
-
-  const getDisplayName = () => {
-    if (user?.user_metadata?.full_name && typeof user.user_metadata.full_name === 'string') {
-      return user.user_metadata.full_name
-    }
-    if (user?.email) {
-      const name = user.email.split('@')[0]
-      return name.charAt(0).toUpperCase() + name.slice(1)
-    }
-    return 'User'
-  }
-
-  const getUserInitial = () => {
-    if (user?.user_metadata?.full_name && typeof user.user_metadata.full_name === 'string') {
-      return user.user_metadata.full_name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
-    }
-    if (user?.email) {
-      return user.email.charAt(0).toUpperCase()
-    }
-    return 'U'
-  }
-
-  const userEmail = user?.email || "user@example.com"
-  const userInitial = getUserInitial()
-  const displayName = getDisplayName()
 
   return (
     <header className="bg-card shadow-sm border-b border-border sticky top-0 z-50">
@@ -327,4 +317,6 @@ export default function Navigation() {
       )}
     </header>
   )
-}
+})
+
+export default Navigation

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createSupabaseClient } from '@/lib/supabase'
 import { User, Session, AuthError } from '@supabase/supabase-js'
 
@@ -119,13 +119,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [])
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     console.log('🔐 Sign in attempt')
     const supabase = createSupabaseClient()
     return await supabase.auth.signInWithPassword({ email, password })
-  }
+  }, [])
 
-  const signUp = async (email: string, password: string, fullName?: string) => {
+  const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
     try {
       console.log('🔐 Sign up attempt for:', email)
       
@@ -154,9 +154,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error: { message: error.message || 'Signup failed' } as AuthError 
       }
     }
-  }
+  }, [])
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     console.log('🔐 Sign out attempt')
     
     try {
@@ -209,15 +209,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error: { message: error.message || 'Sign out failed' } as AuthError 
       }
     }
-  }
+  }, [])
 
-  const updateUser = async (attributes: any) => {
+  const updateUser = useCallback(async (attributes: any) => {
     console.log('🔐 Update user attempt')
     const supabase = createSupabaseClient()
     return await supabase.auth.updateUser(attributes)
-  }
+  }, [])
 
-  const value: AuthContextType = {
+  const value: AuthContextType = useMemo(() => ({
     ...authState,
     isAuthenticated: !!authState.user && authState.initialized,
     isEmailConfirmed: !!authState.user?.email_confirmed_at,
@@ -225,7 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signOut,
     updateUser,
-  }
+  }), [authState, signIn, signUp, signOut, updateUser])
 
   return (
     <AuthContext.Provider value={value}>

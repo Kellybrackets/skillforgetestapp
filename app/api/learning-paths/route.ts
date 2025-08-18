@@ -1,4 +1,4 @@
-// app/api/learning-paths/route.ts - API routes for learning paths
+// app/api/learning-paths/route.ts - Optimized API routes for learning paths
 import { NextRequest, NextResponse } from 'next/server'
 import { 
   getAllLearningPaths, 
@@ -9,6 +9,25 @@ import {
 } from '@/lib/database/learning-paths'
 import { createSupabaseClient } from '@/lib/supabase'
 
+// Simple in-memory cache for static data
+const cache = new Map<string, { data: any; expires: number }>()
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
+function getCachedData(key: string) {
+  const cached = cache.get(key)
+  if (cached && cached.expires > Date.now()) {
+    return cached.data
+  }
+  return null
+}
+
+function setCachedData(key: string, data: any) {
+  cache.set(key, {
+    data,
+    expires: Date.now() + CACHE_DURATION
+  })
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -17,29 +36,61 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId')
     const includeProgress = searchParams.get('includeProgress') === 'true'
     
-    // If user ID and progress requested, return complete data
+    // Create cache key
+    const cacheKey = `${category || 'all'}-${search || 'none'}-${userId || 'none'}-${includeProgress}`
+    
+    // If user ID and progress requested, return complete data (no caching for user-specific data)
     if (userId && includeProgress) {
       const data = await getLearningPathsWithProgress(userId)
-      return NextResponse.json(data)
+      
+      // Set cache headers for client-side caching
+      const response = NextResponse.json(data)
+      response.headers.set('Cache-Control', 'private, max-age=300') // 5 minutes
+      return response
+    }
+    
+    // Check cache for non-user-specific data
+    if (!userId) {
+      const cachedData = getCachedData(cacheKey)
+      if (cachedData) {
+        const response = NextResponse.json(cachedData)
+        response.headers.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=600')
+        response.headers.set('X-Cache', 'HIT')
+        return response
+      }
     }
     
     let paths
     
-    // Handle search
+    // Handle search (no caching for search to ensure fresh results)
     if (search) {
       paths = await searchLearningPaths(search)
-      return NextResponse.json({ paths, total: paths.length })
+      const result = { paths, total: paths.length }
+      const response = NextResponse.json(result)
+      response.headers.set('Cache-Control', 'public, max-age=60') // 1 minute for search
+      return response
     }
     
     // Handle category filter
     if (category) {
       paths = await getLearningPathsByCategory(category)
-      return NextResponse.json({ paths, total: paths.length })
+      const result = { paths, total: paths.length }
+      setCachedData(cacheKey, result)
+      const response = NextResponse.json(result)
+      response.headers.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=600')
+      response.headers.set('X-Cache', 'MISS')
+      return response
     }
     
     // Default: return all paths
     paths = await getAllLearningPaths()
-    return NextResponse.json({ paths, total: paths.length })
+    const result = { paths, total: paths.length }
+    setCachedData(cacheKey, result)
+    
+    const response = NextResponse.json(result)
+    response.headers.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=600')
+    response.headers.set('X-Cache', 'MISS')
+    return response
     
   } catch (error) {
     console.error('Error in learning-paths API:', error)

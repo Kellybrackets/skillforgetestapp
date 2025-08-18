@@ -1,6 +1,18 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
+import { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "SkillForge - AI-Powered Learning Platform",
+  description: "Accelerate your learning journey with personalized AI recommendations and mentorship. Join thousands of learners mastering new skills.",
+  keywords: ["learning", "ai", "education", "skills", "courses", "mentorship"],
+  openGraph: {
+    title: "SkillForge - AI-Powered Learning Platform",
+    description: "Accelerate your learning journey with personalized AI recommendations and mentorship.",
+    type: "website",
+  },
+}
 
 export default function Home() {
   return (
