@@ -3,6 +3,7 @@
 import { useVapi, type ChatMessage } from "@/lib/vapi/hooks"
 import { Button } from "@/components/ui/button"
 import { Phone, PhoneOff, RotateCcw, Mic, MicOff } from "lucide-react"
+import { VapiDebugPanel } from "@/components/vapi-debug-panel"
 
 interface InterviewInterfaceProps {
   userName: string;
@@ -245,6 +246,9 @@ export function InterviewInterface({
           </div>
         )}
       </div>
+      
+      {/* Debug Panel - only show in development or when needed */}
+      <VapiDebugPanel />
     </div>
   );
 }

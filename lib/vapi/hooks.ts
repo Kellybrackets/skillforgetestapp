@@ -3,6 +3,25 @@ import { vapi } from "./sdk";
 
 export type CallStatus = "idle" | "connecting" | "active" | "ended";
 
+// Audio diagnostics helper
+const logAudioDiagnostics = () => {
+  if (typeof window === "undefined") return;
+  
+  console.log("🔊 Audio Diagnostics:");
+  console.log("- User Agent:", navigator.userAgent);
+  console.log("- Audio Context supported:", typeof window.AudioContext !== "undefined" || typeof window.webkitAudioContext !== "undefined");
+  console.log("- Media Devices supported:", !!navigator.mediaDevices);
+  console.log("- WebSocket supported:", typeof WebSocket !== "undefined");
+  
+  // Check Vapi instance
+  console.log("- Vapi instance:", !!vapi);
+  console.log("- Vapi methods:", vapi ? Object.keys(vapi) : "No vapi instance");
+  
+  // Environment variables
+  console.log("- Vapi Public Key:", process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY ? "Set" : "Missing");
+  console.log("- Workflow ID:", process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID || "Not set");
+};
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -29,6 +48,8 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
 
   useEffect(() => {
     setMounted(true);
+    // Run audio diagnostics on mount
+    setTimeout(() => logAudioDiagnostics(), 1000);
   }, []);
 
   // Add message to chat
@@ -53,6 +74,7 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
 
     const handleCallStart = () => {
       console.log("📞 Call started");
+      console.log("🔊 Audio Context at call start:", vapi.audioContext?.state);
       setCallStatus("active");
       addMessage("assistant", "Hello! I'm your AI interviewer. Let's begin with a simple question: Can you tell me about yourself and your experience?");
     };
@@ -67,6 +89,8 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
 
     const handleSpeechStart = () => {
       console.log("🗣️ AI started speaking");
+      console.log("🔊 Audio Context state:", vapi.audioContext?.state);
+      console.log("🔊 Audio playback active:", vapi.isAudioPlaying || "Unknown");
       setIsSpeaking(true);
     };
 
@@ -91,6 +115,8 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
 
     const handleMessage = (message: any) => {
       console.log("💬 Vapi message:", message);
+      console.log("💬 Message type:", message.type);
+      console.log("💬 Full message object:", JSON.stringify(message, null, 2));
       
       if (message.type === "assistant-message") {
         addMessage("assistant", message.content);
@@ -99,8 +125,22 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
 
     const handleError = (error: any) => {
       console.error("❌ Vapi error:", error);
+      console.error("❌ Error details:", JSON.stringify(error, null, 2));
       setCallStatus("idle");
       addMessage("assistant", "Sorry, there was an error with the interview. Please try again.");
+    };
+
+    // Add additional event handlers for debugging
+    const handleVolumeLevel = (volume: any) => {
+      console.log("🔊 Volume level:", volume);
+    };
+
+    const handleAudioStart = () => {
+      console.log("🎵 Audio playback started");
+    };
+
+    const handleAudioEnd = () => {
+      console.log("🎵 Audio playback ended");
     };
 
     // Add event listeners
@@ -111,6 +151,18 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
     vapi.on("transcript", handleTranscriptUpdate);
     vapi.on("message", handleMessage);
     vapi.on("error", handleError);
+    
+    // Additional debugging events
+    if (vapi.on) {
+      try {
+        vapi.on("volume-level", handleVolumeLevel);
+        vapi.on("audio-start", handleAudioStart);
+        vapi.on("audio-end", handleAudioEnd);
+        console.log("🔧 Additional debug event listeners added");
+      } catch (e) {
+        console.log("🔧 Some debug events not available:", e);
+      }
+    }
 
     // Cleanup
     return () => {
@@ -121,6 +173,15 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
       vapi.off("transcript", handleTranscriptUpdate);
       vapi.off("message", handleMessage);
       vapi.off("error", handleError);
+      
+      // Cleanup debug listeners
+      try {
+        vapi.off("volume-level", handleVolumeLevel);
+        vapi.off("audio-start", handleAudioStart);
+        vapi.off("audio-end", handleAudioEnd);
+      } catch (e) {
+        console.log("🔧 Debug cleanup error:", e);
+      }
     };
   }, [mounted, addMessage]);
 
@@ -139,9 +200,28 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
     
     try {
       console.log("🚀 Starting interview with Vapi...");
+      console.log("🔧 Environment check:", {
+        publicKey: process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY ? "Set" : "Missing",
+        workflowId: workflowId || "Not provided",
+        vapiInstance: !!vapi,
+        vapiMethods: vapi ? Object.keys(vapi).slice(0, 5) : "None"
+      });
+      
+      // Test microphone permissions
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("🎤 Microphone access granted");
+        stream.getTracks().forEach(track => track.stop());
+      } catch (micError) {
+        console.error("🎤 Microphone access denied:", micError);
+        addMessage("assistant", "Microphone access is required for voice interviews. Please grant permission and try again.");
+        setCallStatus("idle");
+        return;
+      }
       
       // Use the workflow ID or create a basic call
       if (workflowId && workflowId !== "your_vapi_workflow_id_here") {
+        console.log("🔧 Using workflow ID:", workflowId);
         await vapi.start(workflowId, {
           variableValues: {
             username: userData.userName,
@@ -150,14 +230,15 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
           }
         });
       } else {
+        console.log("🔧 Using basic assistant configuration");
         // Start with a basic assistant configuration
-        await vapi.start({
+        const assistantConfig = {
           model: {
-            provider: "openai",
-            model: "gpt-4",
+            provider: "openai" as const,
+            model: "gpt-4" as const,
             messages: [
               {
-                role: "system",
+                role: "system" as const,
                 content: `You are an AI interviewer conducting a ${userData.interviewType || 'technical'} interview for a ${userData.role} position. 
                 
                 Interview Guidelines:
@@ -173,15 +254,22 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
             ]
           },
           voice: {
-            provider: "elevenlabs",
+            provider: "elevenlabs" as const,
             voiceId: "21m00Tcm4TlvDq8ikWAM" // Rachel voice
           }
-        });
+        };
+        console.log("🔧 Assistant config:", JSON.stringify(assistantConfig, null, 2));
+        await vapi.start(assistantConfig);
       }
+      console.log("✅ Vapi.start() completed successfully");
     } catch (error) {
-      console.error("Failed to start interview:", error);
+      console.error("❌ Failed to start interview:", error);
+      const errorObj = error as Error;
+      console.error("❌ Error name:", errorObj.name);
+      console.error("❌ Error message:", errorObj.message);
+      console.error("❌ Error stack:", errorObj.stack);
       setCallStatus("idle");
-      addMessage("assistant", "Failed to start the interview. Please check your internet connection and try again.");
+      addMessage("assistant", `Failed to start the interview: ${errorObj.message}. Please check your environment variables and try again.`);
     }
   }, [callStatus, workflowId, userData, addMessage]);
 
