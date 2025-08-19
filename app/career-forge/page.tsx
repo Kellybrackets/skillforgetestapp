@@ -10,8 +10,8 @@ export const metadata: Metadata = {
 export default function CareerForgeStudio() {
   const features = [
     {
-      title: "AI Interview Prep",
-      description: "Practice with AI-driven mock interviews tailored to your industry and experience level.",
+      title: "AI Interview Creator",
+      description: "Generate personalized interview questions tailored to your role, then practice with AI-powered mock interviews.",
       icon: <Mic className="w-8 h-8" />,
       comingSoon: false,
       href: "/career-forge/ai-interview-prep",

@@ -1,9 +1,9 @@
-import { InterviewInterface } from "@/components/interview-interface"
+import { InterviewConfiguration } from "@/components/interview-configuration"
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "AI Interview Prep - PrepWise",
-  description: "Practice your interview skills with AI-powered mock interviews tailored to your role and experience level.",
+  title: "Create Interview - SkillForge",
+  description: "Configure and generate personalized interview questions tailored to your role and experience level.",
 }
 
 export default function AIInterviewPrep() {
@@ -17,7 +17,7 @@ export default function AIInterviewPrep() {
   const defaultInterviewType = "technical" as const
 
   return (
-    <InterviewInterface
+    <InterviewConfiguration
       userName={defaultUserName}
       role={defaultRole}
       interviewType={defaultInterviewType}
