@@ -74,9 +74,9 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
 
     const handleCallStart = () => {
       console.log("📞 Call started");
-      console.log("🔊 Audio Context at call start:", vapi.audioContext?.state);
       setCallStatus("active");
-      addMessage("assistant", "Hello! I'm your AI interviewer. Let's begin with a simple question: Can you tell me about yourself and your experience?");
+      // Don't add a manual message - let the workflow handle the initial greeting
+      // Your workflow starts with: "Hey there! How are you? Could I get your name, please?"
     };
 
     const handleCallEnd = () => {
@@ -89,8 +89,6 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
 
     const handleSpeechStart = () => {
       console.log("🗣️ AI started speaking");
-      console.log("🔊 Audio Context state:", vapi.audioContext?.state);
-      console.log("🔊 Audio playback active:", vapi.isAudioPlaying || "Unknown");
       setIsSpeaking(true);
     };
 
@@ -148,7 +146,12 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
     vapi.on("call-end", handleCallEnd);
     vapi.on("speech-start", handleSpeechStart);
     vapi.on("speech-end", handleSpeechEnd);
-    vapi.on("transcript", handleTranscriptUpdate);
+    // Note: transcript event may vary by Vapi SDK version
+    try {
+      vapi.on("transcript", handleTranscriptUpdate);
+    } catch (e) {
+      console.log("🔧 Transcript event not available in this SDK version");
+    }
     vapi.on("message", handleMessage);
     vapi.on("error", handleError);
     
@@ -219,17 +222,13 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
         return;
       }
       
-      // For now, always use basic assistant configuration since we have workflow ID, not assistant ID
-      // TODO: Implement proper workflow support when Vapi.ai workflow API is available
-      if (false && workflowId && workflowId !== "your_vapi_workflow_id_here") {
-        console.log("🔧 Using workflow ID:", workflowId);
-        await vapi.start(workflowId, {
-          variableValues: {
-            username: userData.userName,
-            role: userData.role,
-            interview_type: userData.interviewType || 'technical'
-          }
-        });
+      // Use your custom workflow that collects user info and conducts personalized interviews
+      if (workflowId && workflowId !== "your_vapi_workflow_id_here") {
+        console.log("🔧 Using your custom workflow:", workflowId);
+        console.log("🔧 Starting workflow that will collect: name, role, interview type, experience level, tech stack, question count");
+        
+        // Start the workflow directly - it will handle its own variable collection
+        await vapi.start(workflowId);
       } else {
         console.log("🔧 Using basic assistant configuration");
         // Start with a basic assistant configuration
