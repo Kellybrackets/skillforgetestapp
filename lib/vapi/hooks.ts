@@ -227,8 +227,16 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
         console.log("🔧 Using your custom workflow:", workflowId);
         console.log("🔧 Starting workflow that will collect: name, role, interview type, experience level, tech stack, question count");
         
-        // Start the workflow directly - it will handle its own variable collection
-        await vapi.start(workflowId);
+        // Start workflow using correct parameter position
+        // Method signature: start(assistant?, assistantOverrides?, squad?, workflow?, workflowOverrides?)
+        console.log("🔧 Starting workflow with correct parameter position...");
+        await vapi.start(
+          undefined, // assistant
+          undefined, // assistantOverrides  
+          undefined, // squad
+          workflowId, // workflow (4th parameter!)
+          undefined  // workflowOverrides
+        );
       } else {
         console.log("🔧 Using basic assistant configuration");
         // Start with a basic assistant configuration
