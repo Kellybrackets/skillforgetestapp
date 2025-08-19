@@ -219,8 +219,9 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
         return;
       }
       
-      // Use the workflow ID or create a basic call
-      if (workflowId && workflowId !== "your_vapi_workflow_id_here") {
+      // For now, always use basic assistant configuration since we have workflow ID, not assistant ID
+      // TODO: Implement proper workflow support when Vapi.ai workflow API is available
+      if (false && workflowId && workflowId !== "your_vapi_workflow_id_here") {
         console.log("🔧 Using workflow ID:", workflowId);
         await vapi.start(workflowId, {
           variableValues: {
@@ -254,8 +255,9 @@ export function useVapi({ workflowId, userData }: UseVapiParams) {
             ]
           },
           voice: {
-            provider: "elevenlabs" as const,
-            voiceId: "21m00Tcm4TlvDq8ikWAM" // Rachel voice
+            provider: "11labs" as const,
+            voiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel voice
+            model: "eleven_turbo_v2" as const
           }
         };
         console.log("🔧 Assistant config:", JSON.stringify(assistantConfig, null, 2));
